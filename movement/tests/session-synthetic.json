@@ -1,0 +1,254 @@
+{
+  "schema": "cem-pano-session-1",
+  "routeId": "benfica-tour-pano",
+  "routeVersion": "provisional-1",
+  "referenceKind": "synthetic",
+  "events": [
+    {
+      "type": "gps",
+      "t": 0,
+      "stamp": 0,
+      "accuracy": 0.1,
+      "lat": 38.74878482,
+      "lng": -9.20159429,
+      "segment": 3
+    },
+    {
+      "type": "gps",
+      "t": 1000,
+      "stamp": 1000,
+      "accuracy": 0.1,
+      "lat": 38.74878482,
+      "lng": -9.20159429,
+      "segment": 3
+    },
+    {
+      "type": "activity",
+      "t": 2000,
+      "activity": "stationary"
+    },
+    {
+      "type": "gps",
+      "t": 2000,
+      "stamp": 2000,
+      "accuracy": 5,
+      "lat": 38.74879954183987,
+      "lng": -9.20164873429418,
+      "segment": 5
+    },
+    {
+      "type": "reference",
+      "t": 2000,
+      "expectedId": "node7"
+    },
+    {
+      "type": "activity",
+      "t": 3000,
+      "activity": "stationary"
+    },
+    {
+      "type": "gps",
+      "t": 3000,
+      "stamp": 3000,
+      "accuracy": 5,
+      "lat": 38.74879954183987,
+      "lng": -9.20164873429418,
+      "segment": 5
+    },
+    {
+      "type": "reference",
+      "t": 3000,
+      "expectedId": "node7"
+    },
+    {
+      "type": "activity",
+      "t": 4000,
+      "activity": "stationary"
+    },
+    {
+      "type": "gps",
+      "t": 4000,
+      "stamp": 4000,
+      "accuracy": 5,
+      "lat": 38.74879954183987,
+      "lng": -9.20164873429418,
+      "segment": 5
+    },
+    {
+      "type": "reference",
+      "t": 4000,
+      "expectedId": "node7"
+    },
+    {
+      "type": "activity",
+      "t": 5000,
+      "activity": "stationary"
+    },
+    {
+      "type": "gps",
+      "t": 5000,
+      "stamp": 5000,
+      "accuracy": 5,
+      "lat": 38.74879954183987,
+      "lng": -9.20164873429418,
+      "segment": 5
+    },
+    {
+      "type": "reference",
+      "t": 5000,
+      "expectedId": "node7"
+    },
+    {
+      "type": "activity",
+      "t": 6000,
+      "activity": "stationary"
+    },
+    {
+      "type": "gps",
+      "t": 6000,
+      "stamp": 6000,
+      "accuracy": 5,
+      "lat": 38.74879954183987,
+      "lng": -9.20164873429418,
+      "segment": 5
+    },
+    {
+      "type": "reference",
+      "t": 6000,
+      "expectedId": "node7"
+    },
+    {
+      "type": "activity",
+      "t": 7000,
+      "activity": "stationary"
+    },
+    {
+      "type": "gps",
+      "t": 7000,
+      "stamp": 7000,
+      "accuracy": 5,
+      "lat": 38.74879954183987,
+      "lng": -9.20164873429418,
+      "segment": 5
+    },
+    {
+      "type": "reference",
+      "t": 7000,
+      "expectedId": "node7"
+    },
+    {
+      "type": "activity",
+      "t": 8000,
+      "activity": "stationary"
+    },
+    {
+      "type": "gps",
+      "t": 8000,
+      "stamp": 8000,
+      "accuracy": 5,
+      "lat": 38.74879954183987,
+      "lng": -9.20164873429418,
+      "segment": 5
+    },
+    {
+      "type": "reference",
+      "t": 8000,
+      "expectedId": "node7"
+    },
+    {
+      "type": "activity",
+      "t": 9000,
+      "activity": "stationary"
+    },
+    {
+      "type": "gps",
+      "t": 9000,
+      "stamp": 9000,
+      "accuracy": 5,
+      "lat": 38.74879954183987,
+      "lng": -9.20164873429418,
+      "segment": 5
+    },
+    {
+      "type": "reference",
+      "t": 9000,
+      "expectedId": "node7"
+    },
+    {
+      "type": "activity",
+      "t": 10000,
+      "activity": "stationary"
+    },
+    {
+      "type": "gps",
+      "t": 10000,
+      "stamp": 10000,
+      "accuracy": 5,
+      "lat": 38.74879954183987,
+      "lng": -9.20164873429418,
+      "segment": 5
+    },
+    {
+      "type": "reference",
+      "t": 10000,
+      "expectedId": "node7"
+    },
+    {
+      "type": "activity",
+      "t": 11000,
+      "activity": "stationary"
+    },
+    {
+      "type": "gps",
+      "t": 11000,
+      "stamp": 11000,
+      "accuracy": 5,
+      "lat": 38.74879954183987,
+      "lng": -9.20164873429418,
+      "segment": 5
+    },
+    {
+      "type": "reference",
+      "t": 11000,
+      "expectedId": "node7"
+    },
+    {
+      "type": "activity",
+      "t": 12000,
+      "activity": "stationary"
+    },
+    {
+      "type": "gps",
+      "t": 12000,
+      "stamp": 12000,
+      "accuracy": 5,
+      "lat": 38.74879954183987,
+      "lng": -9.20164873429418,
+      "segment": 5
+    },
+    {
+      "type": "reference",
+      "t": 12000,
+      "expectedId": "node7"
+    },
+    {
+      "type": "activity",
+      "t": 13000,
+      "activity": "stationary"
+    },
+    {
+      "type": "gps",
+      "t": 13000,
+      "stamp": 13000,
+      "accuracy": 5,
+      "lat": 38.74879954183987,
+      "lng": -9.20164873429418,
+      "segment": 5
+    },
+    {
+      "type": "reference",
+      "t": 13000,
+      "expectedId": "node7"
+    }
+  ]
+}

@@ -1,0 +1,388 @@
+'use strict';
+const frame = document.getElementById('tour');
+const statusBox = document.getElementById('status');
+const scenario = document.getElementById('scenario');
+const startPanorama = document.getElementById('start-panorama');
+function selectedStart(){return data.nodes.find(node=>node.id===startPanorama.value)||data.nodes.find(node=>node.id===data.start);}
+function syncStartHelp(){
+  if(!data)return;
+  const first=selectedStart(),index=data.nodes.indexOf(first),next=data.nodes[index+1]||data.nodes[index-1];
+  document.getElementById('start-panorama-help').textContent=`Começar em ${first.title}. ${window.TourMovement?.enabled()?document.getElementById('remote-path').value==='straight'?'Caminha em linha reta; o motor acompanha o percurso virtual.':'Reproduz as curvas do percurso depois de definir o eixo GPS.':document.getElementById('straight-walk').checked?'Caminha em frente, sem fazer curvas.':'Os primeiros passos seguem a direção de '+next.title+'.'}`;
+}
+startPanorama.onchange=()=>{stopTracking();window.TourMap?.reset();openNode(selectedStart().id);syncStartHelp();};
+const buttons = ['simulate', 'custom', 'gps', 'reset', 'route', 'follow'].map(id => document.getElementById(id));
+let data, cases = [], revision = 0, watchId = null, routeTimer = null, preparationTimer = null, ready = false;
+let lastError = '', permissionState = 'não disponível', diagnosticRevision = 0;
+let simulation=null,simulationPaused=false;
+let cameraSweep=null;
+function stopCameraSweep(){
+  if(!cameraSweep)return;
+  cancelAnimationFrame(cameraSweep.frame);
+  const player=frame.contentWindow.pano;
+  if(cameraSweep.node===player.getCurrentNode()&&cameraSweep.base!==null)player.setPan(cameraSweep.base);
+  if(cameraSweep.gyro)player.setUseGyro(true);
+  if(cameraSweep.autorotate)player.startAutorotate();
+  cameraSweep=null;
+}
+let preparationSummary='Ainda não realizada';
+function status(text, friendly = text) {
+  document.getElementById('technical-status').textContent = text;
+  statusBox.textContent = friendly;
+}
+function walkState(state) {
+  document.body.dataset.walkState=state;
+  const active=state==='preparing'||state==='walking';
+  document.getElementById('walk-setup').hidden=active;
+  document.getElementById('follow').hidden=active;
+  document.getElementById('walking-help').hidden=!active;
+  document.getElementById('walk-state-title').textContent={loading:'A carregar a visita',ready:'Pronto para começar',preparing:'A preparar a caminhada',walking:'Caminhada em curso',finished:'Caminhada terminada',error:'Verifica a localização'}[state];
+  if(active){document.getElementById('test-tools').open=false;document.getElementById('explore-help').open=false;}
+}
+function syncModeChoices(){
+  document.querySelectorAll('[data-mode]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.mode===document.getElementById('gps-mode').value)));
+}
+document.querySelectorAll('[data-mode]').forEach(button=>button.onclick=()=>{
+  document.getElementById('gps-mode').value=button.dataset.mode;
+  modeChanged();
+});
+walkState('loading');
+function activeTracking() {
+  walkState('walking');
+  document.getElementById('follow').disabled=true;
+  document.getElementById('follow').textContent='Caminhada em curso';
+  document.getElementById('stop').disabled=false;
+  document.getElementById('stop').hidden=false;
+}
+async function diagnostics() {
+  const request = ++diagnosticRevision;
+  try { permissionState = (await navigator.permissions.query({name:'geolocation'})).state; } catch (_) { permissionState = 'não disponível neste navegador'; }
+  if (request !== diagnosticRevision) return;
+  const policy = document.permissionsPolicy || document.featurePolicy;
+  let allowed = 'não verificável';
+  try { allowed = policy ? (policy.allowsFeature('geolocation') ? 'permitida' : 'bloqueada') : allowed; } catch (_) {}
+  document.getElementById('diagnostics').textContent = `Versão: tour-mov 0.1 · base 7.7.1\nHTTPS: ${window.isSecureContext ? 'sim' : 'não'}\nAPI de localização: ${navigator.geolocation ? 'disponível' : 'indisponível'}\nPermissão reportada pelo navegador: ${permissionState}\nPolítica da página: ${allowed}\nPágina dentro de outra aplicação/frame: ${window.top !== window.self ? 'sim' : 'não'}\nÚltimo erro: ${lastError || 'nenhum'}\nNavegador: ${navigator.userAgent}`;
+  document.getElementById('diagnostics').textContent+=`\nPreparação inicial: ${preparationSummary}`;
+}
+function stopTracking() {
+  window.TourMovement?.stop();
+  revision++;
+  stopCameraSweep();
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  if (routeTimer !== null) clearInterval(routeTimer);
+  if (preparationTimer !== null) clearInterval(preparationTimer);
+  preparationTimer=null;
+  simulation=null;simulationPaused=false;
+  document.getElementById('simulation-pause').hidden=true;
+  document.getElementById('simulation-pause').textContent='Pausar simulação';
+  walkState(ready?'ready':'loading');
+  document.getElementById('use-position').hidden=true;
+  document.getElementById('use-position').onclick=null;
+  watchId = null; routeTimer = null;
+  window.TourMap?.pause();
+  document.getElementById('stop').disabled = true;
+  document.getElementById('stop').hidden = true;
+  document.getElementById('follow').disabled=!ready;
+  document.getElementById('follow').textContent='Começar caminhada';
+}
+function openNode(id) {
+  const player = frame.contentWindow.pano;
+  if (!player || !player.getNodeIds().includes(id)) throw new Error('O tour ainda está a carregar. Tenta novamente.');
+  if (player.getCurrentNode() !== id) player.openNext('{' + id + '}', '');
+  const node=data.nodes.find(n=>n.id===id);
+  if (node) document.getElementById('current-label').textContent=node.title;
+  window.TourMap?.setActive(id);
+}
+function usePosition(position, source, accuracy) {
+  const best = TourGeo.nearest(position, data.nodes);
+  const outside = best.meters > 100;
+  openNode(outside ? data.start : best.node.id);
+  window.TourMap?.reset();
+  window.TourMap?.update(position,accuracy,source!=='Localização real');
+  const coordText = `${position.lat.toFixed(7)}, ${position.lng.toFixed(7)}`;
+  let message = `${source}: ${coordText}\nMais próximo: ${best.node.title} (${Math.round(best.meters)} m).\n`;
+  message += outside ? 'Fora da área de teste. Tour aberto no ponto inicial.' : `Tour aberto em ${best.node.title}.`;
+  if (accuracy !== undefined) message += `\nPrecisão indicada pelo aparelho: ±${Math.round(accuracy)} m.`;
+  if (accuracy > 20) message += '\nA precisão pode ser insuficiente para distinguir panoramas vizinhos.';
+  status(message, outside ? 'Esta posição fica fora do percurso. Podes explorar a visita pelas setas.' : `Estás em ${best.node.title}. Explora a imagem com o dedo.`);
+}
+document.getElementById('simulate').onclick = () => {
+  stopTracking();
+  try { usePosition(cases[Number(scenario.value)], 'Localização simulada'); } catch (e) { status(e.message); }
+};
+document.getElementById('custom').onclick = () => {
+  stopTracking();
+  try {
+    const lat = document.getElementById('lat'), lng = document.getElementById('lng');
+    if (!lat.value.trim() || !lng.value.trim()) throw new Error('Preenche a latitude e a longitude.');
+    usePosition({ lat: Number(lat.value), lng: Number(lng.value) }, 'Coordenadas simuladas');
+  } catch (e) { status(e.message); }
+};
+document.getElementById('reset').onclick = () => {
+  stopTracking();
+  try { window.TourMap?.reset(); openNode(data.start); status('Tour aberto no ponto inicial.','Estás na primeira imagem. Podes começar uma nova caminhada.'); } catch(e) { status(e.message); }
+};
+function gpsError(error, current) {
+  if (current !== revision) return;
+  lastError = `Código ${error.code}: ${error.message || '(sem mensagem do navegador)'}`;
+  const retrying = watchId !== null && error.code !== 1;
+  if (!retrying) {stopTracking();walkState('error');}
+  const messages = {1:'O navegador bloqueou a localização (código 1). Isso também pode acontecer quando o acesso está bloqueado pelo sistema ou pela aplicação que abriu o link, mesmo com a permissão do site ativa.',2:'O navegador não conseguiu obter uma posição (código 2).',3:'Não chegou uma posição dentro do tempo de espera (código 3).'};
+  if (!retrying) { try { openNode(document.getElementById('gps-mode').value==='relative'?selectedStart().id:data.start); } catch (_) {} }
+  status((messages[error.code] || 'Não foi possível obter a localização.') + (retrying ? '\nO acompanhamento continua ativo, à espera de outra posição.' : '\nAbre “Diagnóstico de localização” e indica a permissão reportada e o último erro. Podes continuar com a caminhada simulada.'), error.code===1 ? 'Não conseguimos aceder à localização. Verifica a permissão no Safari ou Chrome e tenta novamente.' : retrying ? 'A localização está temporariamente indisponível. A caminhada continua ativa, à espera de sinal.' : 'Não foi possível obter a tua localização. Tenta novamente.');
+  diagnostics();
+}
+function startGps(follow) {
+  if(follow&&window.TourMovement?.enabled())return window.TourMovement.start({data,first:selectedStart(),openNode,status,activeTracking,walkState,stopTracking});
+  stopTracking();
+  const current = revision;
+  lastError = ''; diagnostics();
+  if (!window.isSecureContext) return status('A localização real precisa de HTTPS.');
+  if (!navigator.geolocation) return status('Este navegador não suporta geolocalização.');
+  status(follow ? 'Acompanhamento iniciado. A aguardar a primeira posição do aparelho…' : 'A obter a localização real. Autoriza o acesso no navegador.','A procurar a tua localização. Permite o acesso se o navegador pedir.');
+  const relative = document.getElementById('gps-mode').value === 'relative';
+  const straight=relative&&document.getElementById('straight-walk').checked;
+  const align = !straight&&document.getElementById('align').checked;
+  const first = selectedStart();
+  const tracker = TourGeo.createTracker(data.nodes, relative ? first.id : data.start);
+  const next = data.nodes[data.nodes.indexOf(first)+1]||data.nodes[data.nodes.indexOf(first)-1];
+  const straightTracker=straight?TourWalk.createStraight(data.nodes,data.nodes.indexOf(first)):null;
+  let origin = null, rotation = align ? null : 0;
+  let preparing=follow, directionDistance=8;
+  const preparation=TourGpsStart.createPreparation();
+  const continueButton=document.getElementById('use-position');
+  function finishPreparation(result,manual=false) {
+    if(current!==revision||!preparing)return;
+    const chosen=manual?result.fallback:{...result.position,accuracy:result.accuracy};
+    if(!chosen)return;
+    preparationSummary=`${manual?'Escolha manual':'Estável'} · ${result.count} leituras · ${Math.round(result.elapsed/1000)} s · precisão do aparelho ±${Math.round(chosen.accuracy)} m`;
+    walkState('walking');
+    preparing=false;clearInterval(preparationTimer);preparationTimer=null;continueButton.hidden=true;
+    directionDistance=Math.max(8,Math.min(30,chosen.accuracy*2));
+    document.getElementById('follow').textContent='Caminhada em curso';
+    success({coords:{latitude:chosen.lat,longitude:chosen.lng,accuracy:chosen.accuracy},timestamp:Date.now()});
+    diagnostics();
+  }
+  function reportPreparation(result) {
+    if(current!==revision||!preparing)return;
+    if(result.ready){finishPreparation(result);return;}
+    continueButton.hidden=!result.fallback;
+    const seconds=Math.ceil(Math.max(0,10000-result.elapsed)/1000);
+    const accuracy=result.accuracy===null?'A aguardar sinal':`±${Math.round(result.accuracy)} m`;
+    document.getElementById('gps-quality').textContent=`GPS: ${accuracy}`;
+    status(`Preparação inicial · ${result.count}/5 leituras\nPrecisão do aparelho: ${accuracy}\nDispersão: ${Number.isFinite(result.spread)?result.spread.toFixed(1)+' m':'a aguardar'}\nTempo: ${Math.floor(result.elapsed/1000)} s.`,
+      seconds>0?`A preparar a localização… Fica parado por cerca de ${seconds} segundos.`:
+      result.fallback?'A posição ainda oscila. Podes aguardar ou começar com a melhor leitura recente.':
+      'A preparar a localização… Fica parado enquanto confirmamos várias leituras estáveis.');
+  }
+  continueButton.onclick=()=>{const result=preparation.snapshot(Date.now());if(result.fallback)finishPreparation(result,true);else reportPreparation(result);};
+  window.TourMap?.reset();
+  const success = position => {
+    if (current !== revision) return;
+    try {
+      if(preparing){reportPreparation(preparation.add(position));return;}
+      document.getElementById('gps-quality').textContent=`GPS: ±${Math.round(position.coords.accuracy)} m`;
+      const coords = {lat:position.coords.latitude, lng:position.coords.longitude};
+      if(follow&&straight){
+        if(!Number.isFinite(position.timestamp)||Date.now()-position.timestamp>10000||position.timestamp>Date.now()+1000)return;
+        const movement=straightTracker.update(coords,position.coords.accuracy,position.timestamp,directionDistance);
+        if(!movement){status('Leitura GPS rejeitada.','A aguardar uma localização mais precisa.');return;}
+        openNode(movement.id);
+        window.TourMap?.update(movement.coords,position.coords.accuracy,true,movement.along);
+        status(`Caminhada em linha reta · ${movement.along.toFixed(1)} m no percurso`,movement.calibrating?
+          `Caminha em frente cerca de ${Math.ceil(movement.remaining)} metros para definir a direção.`:
+          movement.end?'Chegaste ao limite do percurso. Podes recuar para regressar.':'Continua em frente, sem fazer curvas. Recuar faz regressar na visita.');
+        return;
+      }
+      if (follow && relative) {
+        const accuracy=position.coords.accuracy;
+        if (!Number.isFinite(accuracy) || accuracy>20) {
+          status(`Teste com GPS relativo\nPrecisão: ±${Math.round(accuracy)} m.\nPrecisão insuficiente (mais de 20 m). A aguardar uma posição melhor.`,'O sinal de localização ainda é pouco preciso. Aguarda um momento, de preferência ao ar livre.');
+          return;
+        }
+        if (!origin) {
+          origin={...coords}; openNode(first.id);
+          trackedPosition(tracker,first,accuracy,'Teste com GPS relativo · origem guardada como '+first.title);
+          if (align) status(document.getElementById('technical-status').textContent+`\nCaminha cerca de ${Math.ceil(directionDistance)} m numa direção para alinhar ${first.title} → ${next.title}.`,`Posição inicial preparada. Caminha cerca de ${Math.ceil(directionDistance)} metros em linha reta para definir a direção da visita.`);
+          return;
+        }
+        const traveled=TourGeo.distance(origin,coords);
+        if (rotation===null) {
+          if (traveled<directionDistance) {
+            const virtual=TourGeo.destination(first,traveled,TourGeo.bearing(first,next));
+            window.TourMap?.update(virtual,accuracy,true);
+            status(`Teste com GPS relativo · origem guardada como ${first.title}\nDeslocamento desde o início: ${traveled.toFixed(1)} m.\nA alinhar a direção: caminha até cerca de ${Math.ceil(directionDistance)} m numa direção.\nPrecisão: ±${Math.round(accuracy)} m.`,`Continua em linha reta para definir a direção. Faltam cerca de ${Math.ceil(directionDistance-traveled)} metros.`);return;
+          }
+          rotation=TourGeo.bearing(first,next)-TourGeo.bearing(origin,coords);
+        }
+        const virtual=TourGeo.relativePosition(origin,coords,first,rotation);
+        trackedPosition(tracker,virtual,accuracy,'Teste com GPS relativo · direção alinhada');
+        status(document.getElementById('technical-status').textContent+`\nDeslocamento desde o início: ${traveled.toFixed(1)} m.`,statusBox.textContent);
+      } else if (follow) trackedPosition(tracker, coords, position.coords.accuracy, 'GPS em tempo real');
+      else if (relative) {
+        openNode(first.id);
+        window.TourMap?.update(first,position.coords.accuracy,true);
+        status(`GPS obtido. Precisão: ±${Math.round(position.coords.accuracy)} m.\nToca em “Começar caminhada” para guardar a tua posição como ${first.title} e iniciar o teste aqui.`,'A tua localização está disponível. Toca em “Começar caminhada” para iniciar.');
+      } else usePosition(coords, 'Localização real', position.coords.accuracy);
+      diagnostics();
+    } catch (e) { status(e.message); }
+  };
+  const options = {enableHighAccuracy:true,timeout:25000,maximumAge:0};
+  if (follow) {
+    watchId = navigator.geolocation.watchPosition(success, error => gpsError(error,current), options);
+    activeTracking();
+    if(preparing){walkState('preparing');document.getElementById('follow').textContent='A preparar localização…';reportPreparation(preparation.snapshot(Date.now()));preparationTimer=setInterval(()=>reportPreparation(preparation.snapshot(Date.now())),1000);}
+  } else navigator.geolocation.getCurrentPosition(success, error => gpsError(error,current), options);
+}
+function trackedPosition(tracker, coords, accuracy, source) {
+  const decision = tracker(coords, accuracy);
+  if (decision.accepted) openNode(decision.id);
+  if (decision.accepted) {window.TourMap?.update(coords,accuracy,source!=='GPS em tempo real');}
+  const node = data.nodes.find(n => n.id === decision.id);
+  let friendly=`Estás em ${node.title}. Continua a caminhar; as imagens mudam automaticamente.`;
+  if (!decision.accepted) friendly='O sinal de localização ainda é pouco preciso. Aguarda um momento, de preferência ao ar livre.';
+  else if (decision.best.meters>100) friendly='Estás fora do percurso da visita. Aproxima-te do local para acompanhar a caminhada, ou escolhe experimentar noutro local.';
+  else if (decision.waiting) friendly='A confirmar a tua posição. Continua a caminhar.';
+  status(`${source}\nMais próximo: ${decision.best.node.title} (${Math.round(decision.best.meters)} m).\nPrecisão: ±${Math.round(accuracy)} m.\n${decision.waiting || (decision.best.meters > 100 ? 'Fora da área. Tour no ponto inicial.' : 'Panorama: ' + node.title)}`,friendly);
+}
+document.getElementById('gps').onclick = () => startGps(false);
+document.getElementById('follow').onclick = () => startGps(true);
+function modeChanged() {
+  stopTracking();
+  syncModeChoices();
+  window.TourMap?.reset();
+  const relative=document.getElementById('gps-mode').value==='relative';
+  document.getElementById('start-panorama-field').hidden=!relative&&!window.TourMovement?.enabled();
+  if(window.TourMovement?.enabled())document.getElementById('remote-test-options').hidden=!relative;
+  syncStartHelp();
+  document.getElementById('relative-options').hidden=!relative;
+  document.getElementById('align').disabled=document.getElementById('straight-walk').checked;
+  document.getElementById('align-label').hidden=!relative||document.getElementById('straight-walk').checked;
+  document.getElementById('relative-help').hidden=!relative||document.getElementById('straight-walk').checked;
+
+  status(relative ? `Teste aqui: ao iniciar, a tua posição passa a ser ${selectedStart().title}.` : 'Modo no local real: o GPS é comparado com as coordenadas originais da tour.','Permite a localização ao começar.');
+}
+document.getElementById('gps-mode').onchange=modeChanged;
+document.getElementById('align').onchange=modeChanged;
+document.getElementById('straight-walk').onchange=()=>{document.getElementById('align').disabled=document.getElementById('straight-walk').checked;if(ready)modeChanged();};
+function cameraOptionsChanged(){
+  document.getElementById('camera-options').disabled=!document.getElementById('simulation-look').checked;
+  const full=document.getElementById('simulation-camera-mode').value==='360';
+  document.getElementById('camera-sides').hidden=full;
+  document.getElementById('camera-full-turn').hidden=!full;
+}
+document.getElementById('simulation-look').onchange=cameraOptionsChanged;
+document.getElementById('simulation-camera-mode').onchange=cameraOptionsChanged;
+document.getElementById('stop').onclick = () => { stopTracking(); walkState('finished'); status('Acompanhamento / simulação parado. Podes navegar livremente.','Caminhada terminada. Podes continuar a explorar pelas setas ou começar de novo.'); };
+document.getElementById('simulation-pause').onclick=()=>{
+  if(!simulation)return;
+  const now=Date.now(),state=simulation.tick(now);
+  if(cameraSweep){cameraSweep.state=state;cameraSweep.stamp=now;}
+  simulationPaused=!simulationPaused;
+  simulation.setPaused(simulationPaused,now);
+  document.getElementById('simulation-pause').textContent=simulationPaused?'Retomar simulação':'Pausar simulação';
+  status(simulationPaused?'Simulação em pausa.':'Simulação retomada.',simulationPaused?'Demonstração em pausa. Podes olhar à volta e retomar quando quiseres.':'Demonstração retomada.');
+};
+document.getElementById('route').onclick = () => {
+  stopTracking();
+  window.TourMap?.reset();
+  const current=revision,first=selectedStart(),startIndex=data.nodes.indexOf(first);
+  const speed=Math.max(0.1,Math.min(10,Number(document.getElementById('simulation-speed').value)||1.4));
+  const requestedHold=Math.max(0,Math.min(60,Number(document.getElementById('simulation-hold').value)||0));
+  const duration=Math.max(2,Math.min(60,Number(document.getElementById('simulation-camera-duration').value)||Math.max(2,requestedHold-1)));
+  const autoLook=document.getElementById('simulation-look').checked&&requestedHold>0;
+  const hold=autoLook?Math.max(requestedHold,duration+1):requestedHold;
+  const cameraOptions={mode:document.getElementById('simulation-camera-mode').value,direction:document.getElementById('simulation-turn-direction').value,
+    left:Math.max(0,Math.min(180,Number(document.getElementById('simulation-left').value||90))),right:Math.max(0,Math.min(180,Number(document.getElementById('simulation-right').value||90)))};
+  simulation=TourWalk.createSimulation(data.nodes,startIndex,speed,hold,Date.now(),document.getElementById('simulation-route').value||'auto');
+  let orientedNode=null,orientedDirection=null;
+  if(autoLook){
+    const player=frame.contentWindow.pano;
+    cameraSweep={node:null,base:null,state:null,stamp:Date.now(),frame:null,gyro:player.getUseGyro(),autorotate:player.getIsAutorotating?.()};
+    if(cameraSweep.gyro)player.setUseGyro(false);
+    if(cameraSweep.autorotate)player.stopAutorotate();
+    const animate=()=>{
+      if(current!==revision||!cameraSweep)return;
+      const sweep=cameraSweep,state=sweep.state;
+      if(state&&sweep.base!==null&&state.waiting){
+        const elapsed=state.lookProgress*hold+(simulationPaused?0:Math.max(0,Date.now()-sweep.stamp)/1000);
+        player.setPan(sweep.base+TourWalk.sweepAngle((elapsed-0.5)/duration,cameraOptions));
+      }
+      sweep.frame=requestAnimationFrame(animate);
+    };
+    cameraSweep.frame=requestAnimationFrame(animate);
+  }
+  const tick=()=>{
+    if(current!==revision||!simulation)return;
+    try{
+      const state=simulation.tick(Date.now());
+      openNode(state.id);
+      const directionChanged=orientedDirection!==null&&orientedDirection!==state.direction;
+      if(orientedNode!==state.id||directionChanged){
+        const player=frame.contentWindow.pano,node=data.nodes.find(n=>n.id===state.id);
+        if(state.direction<0)player.setPan((node.forwardPan??player.getPan())+180);
+        else if(directionChanged)player.setPan(node.forwardPan??player.getPan()-180);
+        orientedNode=state.id;orientedDirection=state.direction;
+      }
+      if(cameraSweep){
+        if(cameraSweep.node!==state.id||directionChanged){cameraSweep.node=state.id;cameraSweep.base=frame.contentWindow.pano.getPan();}
+        if(cameraSweep.state?.waiting&&!state.waiting)frame.contentWindow.pano.setPan(cameraSweep.base);
+        cameraSweep.state=state;cameraSweep.stamp=Date.now();
+      }
+      window.TourMap?.update(state.coords,undefined,true,state.along);
+      if(state.done){stopTracking();walkState('finished');status('Caminhada simulada concluída.','A demonstração chegou ao fim. Podes começar novamente ou explorar pelas setas.');return;}
+      if(!state.paused)status(`Demonstração automática · ${speed} m/s · pausa ${hold} s`,state.waiting?(autoLook?'Pausa no panorama. A câmara olha automaticamente à volta.':'Pausa no panorama. Podes olhar à volta.'):'Demonstração em curso. Podes recolher o painel e fechar o mapa.');
+    }catch(e){stopTracking();status(e.message);}
+  };
+  routeTimer=setInterval(tick,100);
+  activeTracking();
+  document.getElementById('simulation-pause').hidden=false;
+  tick();
+};
+window.addEventListener('pagehide',stopTracking);
+async function init() {
+  try {
+    const response = await fetch('nodes.json?v=7.7.1');
+    if (!response.ok) throw new Error('Não foi possível carregar os pontos do tour.');
+    data = await response.json();
+    await window.TourMovement?.init(data);
+    startPanorama.replaceChildren(...data.nodes.map(node=>{const option=document.createElement('option');option.value=node.id;option.textContent=node.title;return option;}));
+    startPanorama.value=data.start;syncStartHelp();
+    window.TourMap?.init(data);
+    scenario.replaceChildren();
+    function add(label, position) {
+      const option = document.createElement('option');
+      option.textContent = label; option.value = cases.length;
+      cases.push(position); scenario.append(option);
+    }
+    data.nodes.forEach(node => add('Junto de ' + node.title, { lat: node.lat + 0.000009, lng: node.lng }));
+    const [a, b] = data.nodes;
+    add(`Entre ${a.title} e ${b.title}`, { lat: (a.lat + b.lat) / 2, lng: (a.lng + b.lng) / 2 });
+    add('Longe da tour (cerca de 5 km)', { lat: a.lat + 0.05, lng: a.lng });
+    document.getElementById('lat').value = a.lat;
+    document.getElementById('lng').value = a.lng;
+    await new Promise((resolve, reject) => {
+      const start = Date.now();
+      const timer = setInterval(() => {
+        try {
+          if (frame.contentWindow.pano?.getNodeIds().includes(data.start)) { clearInterval(timer); resolve(); }
+          else if (Date.now() - start > 60000) { clearInterval(timer); reject(new Error('O tour demorou a carregar. Recarrega a página e verifica a ligação.')); }
+        } catch (e) { clearInterval(timer); reject(e); }
+      }, 200);
+    });
+    ready=true;walkState('ready');syncModeChoices();
+    const player=frame.contentWindow.pano;
+    window.TourControls?.init(player);
+    const updateLabel=()=>{
+      const node=data.nodes.find(n=>n.id===player.getCurrentNode());
+      if(node) document.getElementById('current-label').textContent=node.title;
+      if(node) window.TourMap?.setActive(node.id);
+      if(node&&watchId===null&&routeTimer===null){startPanorama.value=node.id;syncStartHelp();}
+    };
+    player.addListener('changenode',updateLabel);
+    updateLabel();
+    startPanorama.disabled=false;scenario.disabled = false; buttons.forEach(button => button.disabled = false);
+    status(`${data.nodes.length} panoramas prontos. Usa “Simular caminhada pela tour” para testar as mudanças automáticas.`,'Permite a localização ao começar.');
+  } catch (e) { status(e.message); }
+}
+init();
+diagnostics();

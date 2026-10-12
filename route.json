@@ -1,0 +1,149 @@
+{
+  "schema": "cem-route-1",
+  "id": "benfica-tour-pano",
+  "version": "provisional-1",
+  "provisional": true,
+  "provenance": "Polilinha das coordenadas de nodes.json; não é levantamento pedonal validado.",
+  "geometry": {
+    "type": "LineString",
+    "coordinates": [
+      [
+        -9.20120518,
+        38.74869721
+      ],
+      [
+        -9.2012888,
+        38.74872382
+      ],
+      [
+        -9.20140854,
+        38.74873891
+      ],
+      [
+        -9.20153344,
+        38.7487665
+      ],
+      [
+        -9.20159429,
+        38.74878482
+      ],
+      [
+        -9.20164341,
+        38.74879857
+      ],
+      [
+        -9.20167409,
+        38.74880417
+      ],
+      [
+        -9.20170872,
+        38.74881206
+      ],
+      [
+        -9.20173112,
+        38.74887257
+      ],
+      [
+        -9.20181759,
+        38.74885856
+      ],
+      [
+        -9.20181388,
+        38.74882947
+      ],
+      [
+        -9.20177432,
+        38.74881953
+      ],
+      [
+        -9.2017579,
+        38.74883815
+      ],
+      [
+        -9.20188184,
+        38.74884957
+      ],
+      [
+        -9.20186373,
+        38.74887937
+      ]
+    ]
+  },
+  "panoramas": [
+    {
+      "id": "node3",
+      "title": "Panorama 01",
+      "vertexIndex": 0
+    },
+    {
+      "id": "node4",
+      "title": "Panorama 02",
+      "vertexIndex": 1
+    },
+    {
+      "id": "node5",
+      "title": "Panorama 03",
+      "vertexIndex": 2
+    },
+    {
+      "id": "node6",
+      "title": "Panorama 04",
+      "vertexIndex": 3
+    },
+    {
+      "id": "node7",
+      "title": "Panorama 05",
+      "vertexIndex": 4
+    },
+    {
+      "id": "node8",
+      "title": "Panorama 06",
+      "vertexIndex": 5
+    },
+    {
+      "id": "node10",
+      "title": "Panorama 07",
+      "vertexIndex": 6
+    },
+    {
+      "id": "node9",
+      "title": "Panorama 08",
+      "vertexIndex": 7
+    },
+    {
+      "id": "node11",
+      "title": "Panorama 09",
+      "vertexIndex": 8
+    },
+    {
+      "id": "node14",
+      "title": "Panorama 10",
+      "vertexIndex": 9
+    },
+    {
+      "id": "node15",
+      "title": "Panorama 11",
+      "vertexIndex": 10
+    },
+    {
+      "id": "node16",
+      "title": "Panorama 12",
+      "vertexIndex": 11
+    },
+    {
+      "id": "node17",
+      "title": "Panorama 13",
+      "vertexIndex": 12
+    },
+    {
+      "id": "node12",
+      "title": "Panorama 14",
+      "vertexIndex": 13
+    },
+    {
+      "id": "node13",
+      "title": "Panorama 15",
+      "vertexIndex": 14
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+# tour-mov — ensaio de movimento
+
+Cópia independente da tour-pano 7.7.1, criada em 12 de outubro de 2026. A pasta original e a publicação tour-pano conservam-se. tour-mov tem publicação própria. O histórico abaixo descreve a base copiada.
+
+## tour-mov 0.2 — GPS, atividade e passos integrados
+
+O botão **Começar caminhada** usa agora o método selecionado: GPS de referência, GPS + atividade ou GPS + passos + percurso (inicial). O ensaio remoto e o local real partilham o mesmo núcleo. A câmara continua independente da marcha. Ver [guião de teste](TESTAR-TOUR-MOV.md).
+
+`movement/sensor-service.js` e `step-detector.js` reaproveitam o serviço/detetor do piloto CeM. `fusion-core.js` acrescenta âncoras explícitas, deslocamento por passos, hipóteses do percurso, sentido confirmado/inferido, confirmação de inversão, incerteza operacional, GPS de fallback e limites de previsão. `movement-ui.js` liga permissões, preparação GPS, ensaio remoto em linha reta/curvas, referências independentes e exportação opcional. Não foi incorporado código dos projetos externos nesta versão; a comparação de contadores permanece por fazer.
+
+Nos pares próximos, a incerteza pode obrigar a conservar uma imagem. Passos não implicam localização precisa: omissões, falsos passos e comprimento variável continuam por calibrar. Não há aprendizagem automática do passo nem promessa de precisão física. A demonstração cinematográfica herdada continua a ser uma apresentação e não um teste deste motor.
+
+Registos exportados incluem GPS bruto, entradas transformadas, movimento, parâmetros, âncora/sentido, ticks, referências e imagens apresentadas. `referenceKind: virtual` identifica ensaio remoto, `physical` referências em Benfica e `synthetic` fixtures simuladas. Dados só são guardados em memória se a gravação for selecionada; exportação manual em JSON. Ficheiros pessoais de sessão são excluídos do Git.
+
+## Implementação iniciada — etapa 1
+
+- `route.json`: geometria provisória, ordem e referências dos 15 panoramas, separadas das imagens. Coordenadas GeoJSON em longitude/latitude. Cada panorama referencia um vértice; podem ser acrescentados vértices para curvas reais, atualizando as referências. Ainda não é um levantamento confirmado.
+- `route-report.json`: 84,17 m calculados; sete intervalos inferiores a 5 m, posições acumuladas, fronteiras médias e margens proporcionais. Fronteiras específicas podem ser definidas em `route.json` através de `boundaries: [{from, to, alongMeters}]`, uma por intervalo.
+- `movement/route-core.js`: validação, projeção com várias hipóteses, fronteiras e seletor conservador de panorama. Mantém a imagem quando a incerteza abrange uma fronteira. Uma posição suficientemente identificada pode saltar panoramas; não força passagem por todos.
+- `movement/replay-core.js`: compara GPS legado, GPS + atividade, candidato GPS + atividade + percurso e GPS + passos + percurso. Nenhum método recebe marcadores de referência como correções de posição.
+- `movement/replay.cjs`: replay local, relatório e exportação opcional, sem envio de dados.
+- `movement/tests/core.cjs`: 13 cenários de geometria, transições, incerteza, erro persistente, atividade, dados antigos, saída do percurso, atraso em fronteiras e determinismo. Gera uma sessão sintética identificada como tal.
+
+A demonstração automática e as opções avançadas herdadas continuam ocultas. As definições de movimento necessárias ao ensaio tour-mov estão visíveis. Próximas etapas: recolher sessões no aparelho, comparar detetores, calibrar passos e confirmar a geometria de Benfica.
+
+Executar nesta pasta:
+
+```powershell
+node movement/tests/core.cjs
+node movement/tests/fusion.cjs
+node movement/tests/sensors.cjs
+node movement/tests/browser.cjs
+node movement/replay.cjs movement/tests/session-synthetic.json movimento-comparacao.json
+node test-walk.cjs
+```
+
+Para gerar novamente a polilinha provisória das coordenadas da base: `node movement/build-route.cjs`. Este comando substitui os ficheiros provisórios; depois de confirmar o traçado, mudar versão e `provisional` para `false`. Não executar a geração sobre uma geometria editada que se pretenda conservar.
+
+Sessões usam `schema: cem-pano-session-1`, `routeId`, `routeVersion`, `referenceKind: synthetic|physical|virtual` e `events` ordenados por `t` em milissegundos. GPS: `{type: gps, t, stamp, lat, lng, accuracy}`; atividade: `{type: activity, t, activity: stationary|walking|unknown}`. Os tempos `t`/`stamp` partilham a mesma origem. Eventos `motion` alimentam o mesmo detetor no browser e replay; `anchor`/`direction` conservam as confirmações humanas. `rawGps` conserva a aquisição antes da transformação remota e é ignorado como medida pelo estimador.
+
+Referência de posição: `{type: reference, t, expectedId, kind: position}`; `position` é o valor por defeito. Para medir atraso de troca, usar passagem da fronteira com `kind: boundary`, não chegada ao centro do panorama. Só referências de fronteira produzem `transitionDelays`. `delayMs` negativo indica troca antecipada; `null` indica ausência de transição correspondente na janela entre fronteiras vizinhas. A inicialização não é uma troca. `stationaryTransitions` conta mudanças com atividade reportada de paragem, não prova erro físico quando o classificador está errado. `skippedPanoramas` é diagnóstico, não falha automática.
+
+Limites: testes sintéticos não medem precisão física. GPS + atividade reduz mudanças durante paragem; erro longitudinal de 5 m continua a impedir identificação inequívoca de panoramas próximos. O candidato pode aguardar uma posição identificável nesse caso. Ainda faltam calibração de passos, avaliação de deriva/recuperação em sessões reais e validação de sensores em iPhone/Android.
+
+## Versão 7.7 — olhar automático nas pausas
+
+Em **Demonstração automática**, a opção **Olhar automaticamente durante as pausas** está desligada por defeito. Quando ativada com uma pausa maior que zero, a câmara roda suavemente do centro a +90°, depois a −90°, e regressa ao centro antes de continuar. A duração acompanha a pausa escolhida. Pausar/retomar congela e retoma também a rotação. Terminar cancela a animação e repõe a direção inicial do panorama atual. O giroscópio e a autorrotação, quando ligados, ficam temporariamente suspensos durante esta demonstração e são repostos no fim. Sem pausa, não se inicia o movimento automático.
+
+Testes verificam extremos ±90°, regresso ao centro, pausa/retoma, cancelamento e preservação dos modos anteriores. O movimento foi também verificado no navegador.
+
+## Versão 7.5 — modos para gravar uma demonstração
+
+Publicado em https://jf-cem.github.io/tour-pano/?v=7.5.
+
+Em **Opções avançadas → Caminhada fora do local**, ativar **Caminhar em linha reta** e iniciar normalmente. A preparação GPS mantém-se. Caminhar os primeiros 8–30 m em frente calibra a direção; depois, o deslocamento nessa direção avança por toda a polilinha do percurso, sem exigir curvas físicas. Recuar reduz o avanço. Parte do panorama escolhido; o P15 começa no sentido do P14. O panorama segue a ordem do percurso, com confirmação por duas leituras, sem usar proximidade geográfica entre segmentos que se cruzam. A barra usa a distância explícita ao longo do percurso. Leituras antigas, repetidas ou com precisão pior que 20 m não avançam a visita. Uma margem de 2–6 m reduz oscilações pequenas. A precisão real continua dependente do GPS e necessita de confirmação no telemóvel ao ar livre. O alinhamento tradicional fica disponível quando a opção em linha reta está desligada; no modo no local verdadeiro continua a ser usada a localização real.
+
+Em **Demonstração automática**, escolher **Velocidade** (0,7 / 1,4 / 2,8 m/s) e **Pausa por panorama** (0 / 2 / 5 / 10 s), depois tocar em **Ver caminhada simulada**. A velocidade mede distância no percurso, em vez de usar o mesmo tempo em todos os segmentos. A pausa ocorre em cada panorama, incluindo o primeiro e o último. O botão **Pausar simulação / Retomar simulação** preserva a posição e o tempo restante da pausa. Alterações às definições aplicam-se ao iniciar uma nova demonstração. A simulação não pede GPS nem apresenta uma precisão GPS fictícia. É possível recolher o painel e fechar o mapa durante ambos os modos. **Terminar caminhada** cancela os temporizadores e permite reiniciar.
+
+As opções avançadas estão organizadas em caminhada fora do local, demonstração automática, testes de posição e localização/diagnóstico. Foi removida a frase assinalada no painel principal.
+
+Verificação: `node test-walk.cjs` cobre as 15 origens, avanço em linha reta através das curvas, regresso, rejeição de precisão insuficiente, velocidades, pausas, pausa/retoma, finalização, cancelamento e regressão do GPS no local. Verificação visual adicional no navegador.
+
+## Versão 7.4.1 — percurso e panorama de partida
+
+Publicado em https://jf-cem.github.io/tour-pano/?v=7.4.1 (repositório anteriormente chamado `tour-r02-teste`).
+
+Em **Quero experimentar aqui**, escolher **Panorama de partida** antes de tocar em **Começar caminhada**. A escolha abre a imagem e acompanha também a navegação pelas setas enquanto a caminhada está parada. A preparação GPS ancora a posição no panorama escolhido. Os primeiros passos alinham a direção com o panorama seguinte; no P15, alinham com o P14. Durante a caminhada a origem fica fixa, mesmo quando a imagem muda. Terminar e voltar a começar usa a escolha atual e uma nova posição GPS.
+
+Em **Estou no local da visita**, o GPS continua a escolher a imagem mais próxima da posição real.
+
+A barra inferior mostra **Percurso x/84 m ±5 m**, com a posição projetada ao longo do percurso, a extensão total e a precisão indicada pelo GPS. Os valores variam com a localização e a precisão recebidas. A linha adicional de metros acumulados foi removida na versão 7.4.1.
+
+**Ver caminhada simulada**, nas opções avançadas, também parte da imagem escolhida; no P15 percorre a ordem inversa. `node test-walk.cjs` verifica as 15 origens, rotação inicial, reinício, seleção GPS no local real. Verificação visual adicional no navegador com a simulação a partir do P10.
+
+As secções abaixo descrevem o histórico das versões anteriores; as referências à origem obrigatória P01 foram substituídas pelo panorama escolhido na versão 7.4.
+
+## Mapa da visita (versão 5)
+
+**Manter o mapa visível** deixa um minimapa independente do cabeçalho, que continua aberto quando o cabeçalho é recolhido. A escolha é guardada no navegador. Fechar o mapa disponibiliza o botão **Mostrar mapa**. Arrastar o mapa permite explorar; **Centrar** retoma o acompanhamento da posição.
+
+Os pontos representam as imagens, o ponto verde com contorno amarelo destaca a imagem atual e o marcador azul com seta acompanha a posição. O rasto azul mostra a caminhada e o círculo azul claro representa a precisão indicada pelo GPS. O rasto é mantido apenas em memória, até 600 amostras, e é reiniciado ao começar uma nova caminhada.
+
+Em **Noutro local**, o marcador acompanha a posição virtual na tour, calculada a partir dos movimentos relativos e do alinhamento inicial. Em **No local da visita**, acompanha as coordenadas reais. A simulação também movimenta o marcador. Posições rejeitadas por precisão insuficiente não movem o marcador.
+
+Leaflet 1.9.4 é incluído localmente, com a licença. O fundo usa os mapas públicos de OpenStreetMap e precisa de ligação à internet. São pedidos apenas os mosaicos visíveis, com o crédito ao fornecedor no mapa; as posições não são enviadas como coordenadas para um serviço de rastreamento. Os pedidos do fundo do mapa são feitos diretamente pelo navegador ao fornecedor. Se o fundo falhar, os pontos e o marcador continuam disponíveis.
+
+## Começar uma caminhada
+
+Escolher **Noutro local — experimentar aqui** ou **No local da visita** e tocar em **Começar caminhada**. Este botão obtém a localização e inicia o acompanhamento numa única ação. Não é necessário verificar o GPS antes. **Terminar caminhada** interrompe o acompanhamento. Tocar no cabeçalho recolhe o painel, mantendo o nome da imagem atual visível. Simulações, coordenadas e diagnóstico ficam em **Opções de teste**.
+
+## Próximo teste no local verdadeiro
+
+No Safari ou Chrome, escolher **No local da visita**, tocar em **Começar caminhada** e permitir a localização. Neste modo, a primeira posição abre a imagem mais próxima das coordenadas reais; não redefine a posição como P01 nem precisa de alinhar os primeiros passos. É possível começar a meio do percurso.
+
+Percorrer primeiro os pontos exteriores, na ida e no regresso. Depois testar os pontos mais próximos entre si, parar em alguns durante cerca de 15 segundos e verificar se a imagem se mantém estável. Registar os pontos onde a mudança atrasa, salta uma imagem ou oscila. Este teste físico permanece por realizar; a verificação automatizada usa posições de GPS simuladas.
+
+## Testar a caminhar noutro local (versão 4)
+
+O modo **Noutro local — experimentar aqui** é o modo inicial. Ao tocar em **Começar caminhada**, a primeira posição com precisão de 20 m ou melhor é guardada em memória como a origem P01. É uma posição nova obtida no início do acompanhamento.
+
+Com **Alinhar os primeiros passos com a direção da visita** ativo, caminhar cerca de 8 m numa direção define a orientação. Os deslocamentos reais seguintes são convertidos em distância e direção relativas, ancorados na geolocalização de P01 e rodados para a direção P01→P02. A lógica de proximidade recebe essas coordenadas virtuais, não a posição distante do telemóvel. Após o alinhamento, reproduzir as curvas do percurso para acompanhar a tour; caminhar em linha reta não percorre automaticamente todos os pontos de uma tour com curvas. Sem alinhamento, as direções geográficas reais são preservadas.
+
+Parar e voltar a iniciar guarda uma nova origem e regressa a P01. A origem não é gravada num servidor ou entre sessões. O modo **No local da visita** mantém o comportamento de geolocalização destinado à visita no local real. As coordenadas exportadas dos panoramas permanecem iguais.
+
+Os primeiros 8 m podem ser afetados pelo ruído do GPS, sobretudo se a precisão indicada for maior que essa distância. Esta calibração é um mecanismo de teste a validar ao ar livre.
+
+Abrir o endereço GitHub Pages em Safari ou Chrome. No painel, escolher uma posição e carregar em **Testar esta posição**. O tour abre o panorama mais próximo dessa posição; fechar o painel para navegar.
+
+Há 15 posições junto dos panoramas, uma entre os dois primeiros e uma a cerca de 5 km. Também podem introduzir coordenadas ou testar o GPS real. Acima de 100 m do panorama mais próximo, abre o ponto inicial. O acesso ao GPS exige autorização; se falhar ou for recusado, abre o início. Nenhuma posição é enviada para um servidor pela lógica do teste.
+
+Esta versão só pede localização real ao tocar num botão. **Verificar a minha localização** obtém uma posição uma vez. **Começar caminhada** usa `watchPosition` e muda os panoramas com as novas posições. **Ver caminhada simulada** percorre posições fictícias em cerca de 43 segundos, usando a mesma lógica de acompanhamento. **Terminar caminhada** termina o modo ativo; escolher uma posição manual também o termina. Manter a página aberta durante o acompanhamento: o navegador não garante funcionamento em segundo plano ou com o ecrã bloqueado.
+
+O acompanhamento ignora posições com precisão pior que 20 m. A primeira posição válida escolhe o panorama imediatamente. Depois, exige duas atualizações consecutivas para mudar de ponto e uma vantagem de pelo menos 2 m face ao ponto atual, para evitar oscilações. Estes valores iniciais precisam de validação no terreno, porque existem panoramas próximos entre si.
+
+O painel **Diagnóstico de localização** mostra o contexto HTTPS, a permissão reportada pelo navegador (quando disponível), a política da página, o navegador e o código e mensagem originais da falha. O código 1 indica uma recusa reportada pelo navegador; não prova que o utilizador recusou a permissão do site. Pode também refletir um bloqueio do sistema, aplicação ou política. Estes dados são apresentados apenas localmente.
+
+O mapa Google incluído na exportação não tem chave API configurada e pode apresentar um erro. O teste de proximidade é independente desse mapa.
+
+O tour original está em `tour.html`; o painel de testes está em `index.html`, `test-ui.js`, `geo.js` e `nodes.json`. Para atualizar imagens, substituir os ficheiros exportados do Pano2VR, guardar o novo HTML como `tour.html` e atualizar as coordenadas em `nodes.json`. Não substituir `index.html` pelo HTML exportado. Preservar os IDs e verificar as coordenadas após cada atualização.
+
+Teste sugerido: junto de três panoramas diferentes, entre os dois primeiros, longe da tour, GPS real estando longe, recusa de GPS, navegação com painel fechado e rotação do telemóvel. A precisão do GPS no terreno exige um teste posterior no local.
+
+## Versão 6 — preparação GPS e barra de percurso
+
+A caminhada começa com uma preparação enquanto o utilizador está parado. Exige pelo menos 10 s, cinco leituras distintas com precisão indicada de 20 m ou melhor, abrangendo pelo menos 8 s, com dispersão máxima de 6 m em relação à mediana. São rejeitadas leituras antigas, repetidas e inválidas. A amostra final tem de ser recente. A posição inicial usa a mediana; a precisão apresentada conserva o maior valor de incerteza das leituras utilizadas, sem a dividir pelo número de amostras. A estabilidade não garante ausência de erro sistemático.
+
+Após 30 s, se ainda não existir um grupo estável, o utilizador pode escolher “Começar com esta precisão”, usando a melhor leitura válida dos últimos 10 s. Sem leitura válida, continua a aguardar. A opção não inicia automaticamente com sinal fraco. Terminar cancela a preparação e o acompanhamento. O diagnóstico regista a duração, número de leituras e escolha automática ou manual.
+
+No teste remoto, a preparação define a origem P01. A distância para alinhar a direção passa a ser duas vezes a incerteza inicial, limitada a 8–30 m. Durante esse alinhamento o panorama permanece em P01; ao concluir pode avançar para o ponto correspondente à distância percorrida. Aumentar esta distância não garante uma orientação exata. No local verdadeiro não existe rotação nem correção artificial para P01: a posição estabilizada é comparada com as coordenadas originais.
+
+A vista principal é uma barra translúcida com os 15 panoramas distribuídos proporcionalmente à distância entre pontos. Verde identifica a imagem atual; azul indica a posição projetada no segmento mais próximo do percurso. A faixa azul clara representa a incerteza indicada pelo aparelho ao longo da barra. A projeção serve para visualização; não muda o cálculo das transições nem demonstra que o utilizador está exatamente sobre o percurso. A barra não substitui as curvas reais do percurso durante o teste remoto.
+
+O botão “Mapa” abre o mapa geográfico de 176 × 96 px (área do mapa), com botões para ampliar/reduzir, seguir a posição e fechar. A preferência é guardada no navegador. O mapa usa zoom 19 ao iniciar o seguimento; aceita gestos de zoom. A barra fica acima dos controlos originais da tour. Blur translúcido tem alternativa de fundo sólido para navegadores sem suporte.
+
+Referências consultadas: [Leaflet-MiniMap](https://github.com/Norkart/Leaflet-MiniMap) documenta minimizar/restaurar e controlo de zoom; [Leaflet.Locate](https://github.com/domoritz/leaflet-locatecontrol) documenta seguimento e dados de precisão; [KalmanLocationManager](https://github.com/villoren/KalmanLocationManager) pondera medições segundo a precisão num projeto Android; [GPS.gov](https://www.gps.gov/gps-accuracy-0) explica os limites em smartphones e efeitos de edifícios. Estes projetos não comprovam precisão de 2–3 m num site Safari. Nesta versão implementamos estabilização inicial, não um filtro Kalman durante a caminhada.
+
+## Versão 7 — controlos visíveis e interface compacta
+
+O cabeçalho recolhido ocupa cerca de 50 px e usa uma superfície translúcida com blur, mantendo os controlos e texto legíveis. “Olhar à volta” permanece visível com o painel aberto ou fechado, ativa/desativa o mesmo giroscópio da skin e acompanha alterações feitas nos controlos originais. Quando o navegador exige autorização, o pedido é feito na janela da tour a partir do gesto no botão. Permissão recusada, erro ou sensor indisponível têm uma mensagem própria; o acesso ao movimento não é confundido com o GPS.
+
+A barra mantém cerca de 47 px. As legendas são texto HTML de tamanho nativo, em vez de texto SVG comprimido. A superfície da barra conserva transparência e contraste, sem aplicar blur às letras. A posição vertical é calculada a partir dos limites dos controlos de navegação visíveis da skin, com margem de 24 px; reage a alterações da skin, mudanças de panorama e de tamanho do ecrã. O mapa geográfico acompanha essa posição. As setas originais continuam acessíveis.
+
+Verificado em tamanhos 390 × 652, 320 × 568 e 844 × 390, incluindo cabeçalho recolhido, ausência de sobreposição com os controlos, ativação/desativação e falhas de permissão de movimento simuladas, preparação GPS e os 15 panoramas. A resposta dos sensores físicos e o comportamento no Safari do iPhone exigem confirmação no aparelho.
+
+## Versão 7.7 — demonstração cinematográfica
+
+Opções avançadas reúne velocidade, pausa, sentido do percurso e movimento da câmara antes do botão de iniciar. Ida avança até P15; regresso até P01; ida e volta vai até P15 e regressa a P01 (partindo de P15, faz o inverso). O modo automático mantém o comportamento anterior. No regresso, usa a vista inicial de cada panorama rodada 180 graus.
+
+A câmara opcional permite escolher graus independentes à esquerda/direita (0–180), ou uma volta completa de 360 graus num dos sentidos. A duração é independente (2–60 segundos), com interpolação suave e meio segundo parado antes/depois. A pausa efetiva aumenta para acomodar o movimento; sem pausa não há rotação automática. Definições aplicam-se ao iniciar. Pausar congela a rotação; terminar cancela-a e restaura os sensores previamente ativos.
+
+Validação: node test-walk.cjs, incluindo ordem completa de ida e volta, regresso desde um ponto intermédio, graus assimétricos, 360 nos dois sentidos e orientação de regresso; verificação da interface e reprodução no navegador.
+
+## Versão 7.7.1 — opções avançadas ocultas na página pública
+
+A secção de opções avançadas fica oculta na página pública. Esta alteração de apresentação não implementa autenticação. Na integração CeM, /tour-benfica/dev deverá ser protegido no servidor antes de disponibilizar as ferramentas à equipa.

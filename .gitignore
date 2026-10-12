@@ -1,0 +1,5 @@
+tour-mov-*.json
+movimento-comparacao.json
+movement/tests/*.png
+node_modules/
+*.log

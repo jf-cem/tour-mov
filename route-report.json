@@ -1,0 +1,271 @@
+{
+  "schema": "cem-route-report-1",
+  "routeId": "benfica-tour-pano",
+  "routeVersion": "provisional-1",
+  "provisional": true,
+  "totalMeters": 84.17129587340524,
+  "panoramas": [
+    {
+      "id": "node3",
+      "title": "Panorama 01",
+      "alongMeters": 0
+    },
+    {
+      "id": "node4",
+      "title": "Panorama 02",
+      "alongMeters": 7.832026138021729
+    },
+    {
+      "id": "node5",
+      "title": "Panorama 03",
+      "alongMeters": 18.35066152577387
+    },
+    {
+      "id": "node6",
+      "title": "Panorama 04",
+      "alongMeters": 29.608166117938282
+    },
+    {
+      "id": "node7",
+      "title": "Panorama 05",
+      "alongMeters": 35.26466505387796
+    },
+    {
+      "id": "node8",
+      "title": "Panorama 06",
+      "alongMeters": 39.79046160985783
+    },
+    {
+      "id": "node10",
+      "title": "Panorama 07",
+      "alongMeters": 42.52294805290963
+    },
+    {
+      "id": "node9",
+      "title": "Panorama 08",
+      "alongMeters": 45.65161070122804
+    },
+    {
+      "id": "node11",
+      "title": "Panorama 09",
+      "alongMeters": 52.65481722469697
+    },
+    {
+      "id": "node14",
+      "title": "Panorama 10",
+      "alongMeters": 60.313654796298
+    },
+    {
+      "id": "node15",
+      "title": "Panorama 11",
+      "alongMeters": 63.564276338957896
+    },
+    {
+      "id": "node16",
+      "title": "Panorama 12",
+      "alongMeters": 67.16859612722371
+    },
+    {
+      "id": "node17",
+      "title": "Panorama 13",
+      "alongMeters": 69.68144356559525
+    },
+    {
+      "id": "node12",
+      "title": "Panorama 14",
+      "alongMeters": 80.50434837641625
+    },
+    {
+      "id": "node13",
+      "title": "Panorama 15",
+      "alongMeters": 84.17129587340524
+    }
+  ],
+  "segments": [
+    {
+      "from": "node3",
+      "to": "node4",
+      "meters": 7.832026138021729,
+      "shorterThan5Meters": false
+    },
+    {
+      "from": "node4",
+      "to": "node5",
+      "meters": 10.518635387752141,
+      "shorterThan5Meters": false
+    },
+    {
+      "from": "node5",
+      "to": "node6",
+      "meters": 11.257504592164413,
+      "shorterThan5Meters": false
+    },
+    {
+      "from": "node6",
+      "to": "node7",
+      "meters": 5.6564989359396805,
+      "shorterThan5Meters": false
+    },
+    {
+      "from": "node7",
+      "to": "node8",
+      "meters": 4.525796555979866,
+      "shorterThan5Meters": true
+    },
+    {
+      "from": "node8",
+      "to": "node10",
+      "meters": 2.7324864430518048,
+      "shorterThan5Meters": true
+    },
+    {
+      "from": "node10",
+      "to": "node9",
+      "meters": 3.1286626483184037,
+      "shorterThan5Meters": true
+    },
+    {
+      "from": "node9",
+      "to": "node11",
+      "meters": 7.003206523468933,
+      "shorterThan5Meters": false
+    },
+    {
+      "from": "node11",
+      "to": "node14",
+      "meters": 7.658837571601033,
+      "shorterThan5Meters": false
+    },
+    {
+      "from": "node14",
+      "to": "node15",
+      "meters": 3.250621542659893,
+      "shorterThan5Meters": true
+    },
+    {
+      "from": "node15",
+      "to": "node16",
+      "meters": 3.604319788265812,
+      "shorterThan5Meters": true
+    },
+    {
+      "from": "node16",
+      "to": "node17",
+      "meters": 2.512847438371537,
+      "shorterThan5Meters": true
+    },
+    {
+      "from": "node17",
+      "to": "node12",
+      "meters": 10.822904810821,
+      "shorterThan5Meters": false
+    },
+    {
+      "from": "node12",
+      "to": "node13",
+      "meters": 3.666947496988996,
+      "shorterThan5Meters": true
+    }
+  ],
+  "boundaries": [
+    {
+      "from": "node3",
+      "to": "node4",
+      "alongMeters": 3.9160130690108645,
+      "marginMeters": 0.75,
+      "source": "midpoint"
+    },
+    {
+      "from": "node4",
+      "to": "node5",
+      "alongMeters": 13.091343831897799,
+      "marginMeters": 0.75,
+      "source": "midpoint"
+    },
+    {
+      "from": "node5",
+      "to": "node6",
+      "alongMeters": 23.979413821856078,
+      "marginMeters": 0.75,
+      "source": "midpoint"
+    },
+    {
+      "from": "node6",
+      "to": "node7",
+      "alongMeters": 32.43641558590812,
+      "marginMeters": 0.75,
+      "source": "midpoint"
+    },
+    {
+      "from": "node7",
+      "to": "node8",
+      "alongMeters": 37.527563331867896,
+      "marginMeters": 0.67886948339698,
+      "source": "midpoint"
+    },
+    {
+      "from": "node8",
+      "to": "node10",
+      "alongMeters": 41.156704831383735,
+      "marginMeters": 0.4098729664577707,
+      "source": "midpoint"
+    },
+    {
+      "from": "node10",
+      "to": "node9",
+      "alongMeters": 44.08727937706884,
+      "marginMeters": 0.46929939724776054,
+      "source": "midpoint"
+    },
+    {
+      "from": "node9",
+      "to": "node11",
+      "alongMeters": 49.153213962962504,
+      "marginMeters": 0.75,
+      "source": "midpoint"
+    },
+    {
+      "from": "node11",
+      "to": "node14",
+      "alongMeters": 56.48423601049748,
+      "marginMeters": 0.75,
+      "source": "midpoint"
+    },
+    {
+      "from": "node14",
+      "to": "node15",
+      "alongMeters": 61.938965567627946,
+      "marginMeters": 0.4875932313989839,
+      "source": "midpoint"
+    },
+    {
+      "from": "node15",
+      "to": "node16",
+      "alongMeters": 65.36643623309081,
+      "marginMeters": 0.5406479682398718,
+      "source": "midpoint"
+    },
+    {
+      "from": "node16",
+      "to": "node17",
+      "alongMeters": 68.42501984640947,
+      "marginMeters": 0.37692711575573057,
+      "source": "midpoint"
+    },
+    {
+      "from": "node17",
+      "to": "node12",
+      "alongMeters": 75.09289597100575,
+      "marginMeters": 0.75,
+      "source": "midpoint"
+    },
+    {
+      "from": "node12",
+      "to": "node13",
+      "alongMeters": 82.33782212491074,
+      "marginMeters": 0.5500421245483494,
+      "source": "midpoint"
+    }
+  ],
+  "warning": "Distâncias calculadas entre coordenadas atuais. Não comprovam posição física ou curvas reais."
+}
