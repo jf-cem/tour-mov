@@ -32,6 +32,7 @@
       }
       if (e.type === 'motion') {
         const d = detector.add(e);
+        state={...state,steps:d.steps,rate:d.rate??state.rate};
         return update({type:'activity', t:e.t, activity:d.activity === 'uncertain' ? 'unknown' : d.activity});
       }
       if (e.type === 'routeFix') e = { ...e, type:'gps', ...route.position(Math.max(0, Math.min(route.total, e.along))) };

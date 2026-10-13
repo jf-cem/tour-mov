@@ -1,6 +1,10 @@
-# Testar tour-mov 0.2
+# Testar tour-mov 0.3
 
 Esta cópia usa os mesmos panoramas da tour-pano e um motor experimental de movimento. A tour-pano original conserva-se. Parâmetros e precisão física ainda precisam de calibração.
+
+A precisão GPS aparece no cabeçalho, inclusive com o painel recolhido: ± metros, qualidade relativa e aviso de leitura antiga. Não é uma medida da força de sinal; ±5 m pode ser insuficiente em panoramas próximos. A contagem de passos usa movimento, não GPS.
+
+No próximo ensaio, grava a sessão e conta 20 passos reais. Começa com sensibilidade **Normal · adaptativa**; se continuar a perder passos, termina e repete com **Mais sensível · movimentos suaves**, em Calibração e início no local. Mantém o comprimento do passo: esse valor altera a distância por passo, não a quantidade de passos detetados.
 
 ## Fora de Benfica
 
@@ -37,6 +41,7 @@ Durante um ensaio gravado, **Marcar uma referência do ensaio** guarda o ponto s
 ```powershell
 node movement/tests/core.cjs
 node movement/tests/fusion.cjs
+node movement/tests/steps.cjs
 node movement/tests/sensors.cjs
 node test-walk.cjs
 node movement/tests/browser.cjs

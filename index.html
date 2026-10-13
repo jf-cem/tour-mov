@@ -42,7 +42,7 @@ body.map-open #visit-panel .panel{max-height:calc(100dvh - 290px)}body.map-expan
 @supports not (backdrop-filter:blur(1px)){#route-strip:before{background:#234d43ee}}
 </style><link rel="stylesheet" href="visit-ui.css?v=7.7.1"></head><body>
 <p id="motion-message" role="status" hidden></p><iframe id="tour" src="tour.html" title="Visita virtual" allow="geolocation; fullscreen; accelerometer; gyroscope" allowfullscreen></iframe>
-<button id="motion-toggle" disabled aria-pressed="false" aria-label="Olhar à volta">Olhar à volta</button><details id="visit-panel" open><summary><span><strong>tour-mov · ensaio</strong><span id="current-label">Caminhar e explorar</span></span></summary><div class="panel">
+<button id="motion-toggle" disabled aria-pressed="false" aria-label="Olhar à volta">Olhar à volta</button><details id="visit-panel" open><summary><span><strong>tour-mov · ensaio</strong><span id="current-label">Caminhar e explorar</span><span id="gps-live" aria-live="polite" data-quality="waiting">GPS: a aguardar</span></span></summary><div class="panel">
 <section id="walk-setup" aria-labelledby="setup-heading">
 <p class="intro">Caminha para mudar de imagem automaticamente.</p>
 <h2 id="setup-heading"><span class="step-number" aria-hidden="true">1</span> Onde vais caminhar?</h2>
@@ -57,7 +57,7 @@ body.map-open #visit-panel .panel{max-height:calc(100dvh - 290px)}body.map-expan
 <p class="hint">Em linha reta, o avanço percorre as curvas da visita. Caminha ao ar livre e mantém o telemóvel na mão. O primeiro trecho define o eixo GPS.</p>
 </div>
 <details><summary>Calibração e início no local</summary><label for="travel-direction">Sentido inicial</label><select id="travel-direction"><option value="1">Ida · para os panoramas seguintes</option><option value="-1">Regresso · para os panoramas anteriores</option></select>
-<label for="step-meters">Comprimento estimado do passo · metros</label><input id="step-meters" type="number" min="0.2" max="1.5" step="0.01" value="0.65">
+<label for="step-sensitivity">Sensibilidade dos passos</label><select id="step-sensitivity"><option value="1" selected>Normal · adaptativa</option><option value="1.5">Mais sensível · movimentos suaves</option><option value="0.75">Menos sensível · reduzir falsos passos</option></select><label for="step-meters">Comprimento estimado do passo · metros</label><input id="step-meters" type="number" min="0.2" max="1.5" step="0.01" value="0.65">
 <label class="check"><input id="confirm-anchor" type="checkbox">No local real, confirmo que estou fisicamente no panorama escolhido</label>
 <p class="hint">Fora de Benfica, o início define a referência virtual. No local real, confirma apenas se reconheces o ponto. Sem confirmação, o GPS procura uma posição inicial.</p>
 </details>
@@ -70,7 +70,7 @@ body.map-open #visit-panel .panel{max-height:calc(100dvh - 290px)}body.map-expan
 <button id="use-position" class="secondary" hidden>Começar com a localização disponível</button>
 <button id="simulation-pause" class="secondary" hidden>Pausar simulação</button>
 <button id="stop" disabled hidden>Terminar caminhada</button>
-<p id="movement-info" class="hint" role="status">tour-mov 0.2 · motor experimental por calibrar</p>
+<p id="movement-info" class="hint" role="status">tour-mov 0.3 · motor experimental por calibrar</p>
 <section id="movement-direction-tools" hidden><label for="live-direction">Vou caminhar no sentido</label><select id="live-direction"><option value="1">Ida</option><option value="-1">Regresso</option></select><button id="confirm-direction" class="secondary">Confirmar sentido</button><details><summary>Marcar uma referência do ensaio</summary><label for="reference-panorama">Ponto onde estás realmente (ou referência virtual do teste)</label><select id="reference-panorama"></select><button id="mark-reference" class="secondary">Marcar chegada a este ponto</button><p id="reference-feedback" class="hint" role="status"></p></details></section>
 <button id="export-session" class="secondary" disabled>Exportar sessão do ensaio</button>
 <p id="walking-help" class="hint" hidden>Mantém esta página aberta durante a caminhada. Podes recolher a janela tocando no título.</p>
@@ -108,10 +108,11 @@ body.map-open #visit-panel .panel{max-height:calc(100dvh - 290px)}body.map-expan
 <details class="advanced-section"><summary>Localização e diagnóstico</summary>
 <p id="gps-quality" class="hint">GPS: a aguardar caminhada</p><button id="gps" class="secondary" disabled>Verificar a minha localização</button>
 <p id="technical-status" class="technical">A preparar…</p><p id="diagnostics" class="technical">A verificar…</p><a href="./index.html" target="_blank" rel="noopener">Abrir tour-mov diretamente no navegador</a>
-<small>tour-mov 0.2 · cópia experimental da base 7.7.1. Percurso provisório e passos por calibrar. O minimapa usa OpenStreetMap.</small></details>
+<small>tour-mov 0.3 · cópia experimental da base 7.7.1. Percurso provisório e passos por calibrar. O minimapa usa OpenStreetMap.</small></details>
 <button id="reset" class="secondary" disabled>Voltar à primeira imagem</button>
 </details></div></details>
 <section id="route-strip" aria-label="Progresso ao longo da visita"><div class="route-heading"><strong>Percurso</strong><span id="route-position">A aguardar caminhada</span><button id="route-map-toggle" aria-pressed="false">Mapa</button></div><svg id="route-line"  role="img" aria-label="Pontos do percurso. Verde: panorama atual. Azul: posição."></svg><div id="route-labels" aria-hidden="true"></div></section>
 <section id="mini-map-panel" aria-label="Mapa da visita"><div class="map-heading"><strong>Mapa</strong><button id="map-size" aria-label="Ampliar mapa" aria-expanded="false" title="Ampliar mapa">↗</button><button id="map-resize" aria-expanded="false" aria-controls="map-resize-tools" aria-label="Redimensionar o mapa" title="Redimensionar o mapa">↔</button><button id="map-close" aria-label="Ocultar mapa">×</button></div><div id="map-resize-tools" hidden><label for="map-width">Tamanho <output id="map-width-value">160 px</output></label><input id="map-width" type="range" min="160" max="280" step="10" value="160" aria-label="Largura do mapa"></div><div id="mini-map" role="region" aria-label="Pontos da visita e posição durante a caminhada"></div><p id="map-caption">A preparar o mapa…</p></section>
 <button id="map-launch" hidden>Mostrar mapa</button>
-<script src="geo.js?v=0.2"></script><script src="3rdparty/leaflet/leaflet.js"></script><script src="gps-start.js?v=0.2"></script><script src="walk-playback.js?v=0.2"></script><script src="route-strip.js?v=0.2"></script><script src="minimap.js?v=0.2"></script><script src="tour-controls.js?v=0.2"></script><script src="movement/sensor-service.js?v=0.2"></script><script src="movement/step-detector.js?v=0.2"></script><script src="movement/route-core.js?v=0.2"></script><script src="movement/fusion-core.js?v=0.2"></script><script src="movement/replay-core.js?v=0.2"></script><script src="movement/movement-ui.js?v=0.2"></script><script src="test-ui.js?v=0.2"></script></body></html>
+<script src="geo.js?v=0.3"></script><script src="3rdparty/leaflet/leaflet.js"></script><script src="gps-start.js?v=0.3"></script><script src="walk-playback.js?v=0.3"></script><script src="route-strip.js?v=0.3"></script><script src="minimap.js?v=0.3"></script><script src="tour-controls.js?v=0.3"></script><script src="movement/sensor-service.js?v=0.3"></script><script src="movement/step-detector-v02.js?v=0.3"></script><script src="movement/step-detector.js?v=0.3"></script><script src="movement/route-core.js?v=0.3"></script><script src="movement/fusion-core.js?v=0.3"></script><script src="movement/replay-core.js?v=0.3"></script><script src="movement/movement-ui.js?v=0.3"></script><script src="test-ui.js?v=0.3"></script></body></html>
+

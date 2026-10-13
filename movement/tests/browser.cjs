@@ -33,6 +33,10 @@ let browser;
  async function reading(m,advance=2000,accuracy=3){const coords=geo.destination({lat:40,lng:-8},m,90);
   await page.evaluate(({coords,advance,accuracy})=>{window.__clock+=advance;window.__gps({coords:{latitude:coords.lat,longitude:coords.lng,accuracy},timestamp:Date.now()});},{coords,advance,accuracy});}
  for(let i=0;i<6;i++)await reading(0);
+ assert.match(await page.locator('#gps-live').textContent(),/GPS ±3\.0 m/);
+ await page.locator('#visit-panel > summary').click();
+ assert.ok(await page.locator('#gps-live').isVisible(),'GPS accuracy remains visible with panel collapsed');
+ await page.locator('#visit-panel > summary').click();
  assert.equal(await page.locator('body').getAttribute('data-walk-state'),'walking');
  await page.evaluate(()=>{
   for(let dt=20;dt<=4500;dt+=20){window.__clock+=20;const event=new Event('devicemotion');
@@ -43,6 +47,12 @@ let browser;
  await reading(14,100,3); // define axis with an informative displacement; source error is preserved
  await page.locator('#live-direction').selectOption('-1');await page.locator('#confirm-direction').click();
  assert.match(await page.locator('#technical-status').textContent(),/sentido: -1/);
+ await page.evaluate(()=>window.__clock+=11000);
+ await page.waitForFunction(()=>document.getElementById('gps-live').textContent.includes('leitura antiga'));
+ await reading(14,100,32);
+ assert.match(await page.locator('#gps-live').textContent(),/±32\.0 m · precisão fraca/,'rejected weak fixes still show their accuracy');
+ await reading(14,100,3);
+ assert.match(await page.locator('#gps-live').textContent(),/melhor precisão/);
  await page.getByText('Marcar uma referência do ensaio',{exact:true}).click();
  await page.locator('#reference-panorama').selectOption('node3');await page.locator('#mark-reference').click();
  assert.equal(await page.locator('#reference-feedback').textContent(),'Referência guardada.');
@@ -50,7 +60,7 @@ let browser;
  await page.locator('#stop').click();assert.ok((await page.evaluate(()=>window.__cleared)).includes(0));
  const downloadPromise=page.waitForEvent('download');await page.locator('#export-session').click();const download=await downloadPromise;
  const stream=await download.createReadStream();let content='';for await(const chunk of stream)content+=chunk;
- const session=JSON.parse(content);assert.equal(session.appVersion,'tour-mov-0.2');
+ const session=JSON.parse(content);assert.equal(session.appVersion,'tour-mov-0.3');
  assert.ok(session.events.some(e=>e.type==='motion'));assert.ok(session.events.some(e=>e.type==='rawGps'));
  assert.ok(session.events.some(e=>e.type==='reference'));assert.equal(session.truncated,false);
  const compared=require('../replay-core.js').compare(session,require('../../route.json'),require('../../nodes.json').nodes);
@@ -82,3 +92,4 @@ let browser;
  assert.deepEqual(errors,[]);
  console.log('PASS browser: real UI, GPS preparation, motion permission, detected steps, axis, direction, reference/export/replay, watch ID 0, stale callback, GPS fallback, confirmed physical anchor, hidden teardown; no page errors.');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});
+

@@ -20,18 +20,19 @@ function createFusion(route,options={}){
     position:along===null?null:route.position(along),parameters:p};}
   function decide(t){const d=selector.update({along,uncertainty,stamp:t});id=d.id;reason=d.reason;return snapshot(t);}
   function hold(why,t){if(why==='outside-route'||why==='ambiguous-segment')routeBlocked=true;reason=why;selector.update({stamp:t,suspended:true});return snapshot(t);}
-  function applyStep(t){
-    count++;
+  function applyStep(t,delta=1){
+    count+=delta;
     if(along===null||blocked)return hold(blocked?'reanchor-required':'anchor-or-gps-required',t);
     if(routeBlocked)return hold('outside-route',t);
     if(!direction||reverse||t-directionAt>p.directionIdleMs)return hold('direction-required',t);
     const age=lastGps?t-lastGps.t+lastGps.age:t-anchorAt;
-    if(age>p.maxWithoutGpsMs||predicted+p.stepMeters>p.maxPredictionMeters||uncertainty+p.stepMeters*p.stepErrorFraction>p.maxUncertainty){
+    const distance=p.stepMeters*delta;
+    if(age>p.maxWithoutGpsMs||predicted+distance>p.maxPredictionMeters||uncertainty+distance*p.stepErrorFraction>p.maxUncertainty){
       return hold('prediction-budget-exceeded',t);
     }
     if(activity!=='walking'||t-activityAt>p.stationaryMs)return hold('motion-unavailable',t);
-    along=clamp(along+direction*p.stepMeters,0,route.total);
-    predicted+=p.stepMeters;uncertainty+=p.stepMeters*p.stepErrorFraction;
+    along=clamp(along+direction*distance,0,route.total);
+    predicted+=distance;uncertainty+=distance*p.stepErrorFraction;
     directionAt=t;
     return decide(t);
   }
@@ -56,7 +57,7 @@ function createFusion(route,options={}){
     if(e.type==='motion'){
       const d=detector.add(e);rate=d.rate??rate;
       activity=d.activity==='uncertain'?'unknown':d.activity;activityAt=e.t;
-      return d.step?applyStep(e.t):snapshot();
+      return d.step?applyStep(e.t,d.stepDelta??1):snapshot();
     }
     if(e.type==='step')return applyStep(e.t);
     if(e.type==='tick'){

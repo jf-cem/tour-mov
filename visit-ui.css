@@ -3,6 +3,8 @@
 #visit-panel>summary{min-height:44px;padding:4px 148px 4px 12px}
 #visit-panel>summary strong{font-size:16px;line-height:20px}
 #current-label{font-size:12px;line-height:16px;color:#35564a}
+#gps-live{display:block;font-size:11px;line-height:15px;font-weight:600;color:#52685e;margin-top:2px;overflow-wrap:anywhere}
+#gps-live[data-quality=better]{color:#17674e}#gps-live[data-quality=limited]{color:#805300}#gps-live[data-quality=bad]{color:#a33128}
 #visit-panel>summary:after{top:0;right:0;width:38px;height:44px;display:grid;place-items:center}
 #motion-toggle{left:calc(12px + min(400px,100vw - 24px) - 146px);width:106px;min-height:40px;top:max(14px,calc(env(safe-area-inset-top) + 2px));padding:5px 7px;white-space:nowrap;font-size:12px;line-height:16px;color:#153c2d;background:#ffffffba}
 #motion-message{top:max(64px,calc(env(safe-area-inset-top) + 52px));font-size:16px}

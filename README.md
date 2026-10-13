@@ -4,6 +4,12 @@ Cópia independente da tour-pano 7.7.1, criada em 12 de outubro de 2026. A pasta
 
 ## tour-mov 0.2 — GPS, atividade e passos integrados
 
+Atualização **0.3**, 13 de outubro de 2026: precisão GPS visível no cabeçalho, mesmo com painel fechado, durante preparação e caminhada. Mostra leituras fracas/antigas e distingue a última leitura após terminar. É precisão horizontal reportada pelo aparelho, não força de sinal nem garantia de distinguir panoramas próximos.
+
+O detetor usa agora filtros temporais e picos com limiar adaptativo, proeminência, cadência e rejeição de ciclos rápidos. Picos iniciais efetivamente observados podem ser contabilizados após confirmação de cadência; não são inventados passos em falhas de dados. Sensibilidade ajustável em **Calibração e início no local**. A contagem continua independente do GPS, mesmo quando a posição fica suspensa. Parâmetros v0.2 gravados selecionam o detetor anterior para replay reproduzível.
+
+Testes adicionais: sinais fracos em 25/50/100 Hz, cadências 0,8–3 Hz, paragem/ruído, tremor rápido, falhas, GPS fraco sem supressão da contagem e leitura GPS visível/antiga/rejeitada na interface. Em sinais sintéticos de 20 passos de amplitude baixa, v0.2 contou 0 e v0.3 contou 19–20. A subcontagem relatada em iPhone/Safari não tinha gravação: causa provável, não confirmação física. Repetir ensaio com gravação e contagem humana.
+
 O botão **Começar caminhada** usa agora o método selecionado: GPS de referência, GPS + atividade ou GPS + passos + percurso (inicial). O ensaio remoto e o local real partilham o mesmo núcleo. A câmara continua independente da marcha. Ver [guião de teste](TESTAR-TOUR-MOV.md).
 
 `movement/sensor-service.js` e `step-detector.js` reaproveitam o serviço/detetor do piloto CeM. `fusion-core.js` acrescenta âncoras explícitas, deslocamento por passos, hipóteses do percurso, sentido confirmado/inferido, confirmação de inversão, incerteza operacional, GPS de fallback e limites de previsão. `movement-ui.js` liga permissões, preparação GPS, ensaio remoto em linha reta/curvas, referências independentes e exportação opcional. Não foi incorporado código dos projetos externos nesta versão; a comparação de contadores permanece por fazer.
@@ -28,6 +34,7 @@ Executar nesta pasta:
 ```powershell
 node movement/tests/core.cjs
 node movement/tests/fusion.cjs
+node movement/tests/steps.cjs
 node movement/tests/sensors.cjs
 node movement/tests/browser.cjs
 node movement/replay.cjs movement/tests/session-synthetic.json movimento-comparacao.json

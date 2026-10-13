@@ -5,6 +5,20 @@ let route,data,session=null,engine=null,watch=null,timer=null,offMotion=null,rev
 let lastMotion=-Infinity,lastRender=-Infinity,latest=null,lastTime=0,recording=false,events=[],truncated=false;
 const MAX_EVENTS=36000,MAX_BYTES=12*1024*1024;let bytes=0;
 const sensors=root.cemSensors;
+let gpsFix=null,gpsRunning=false,gpsFault=null;
+function showGps(t){
+  const badge=el('gps-live');if(!badge)return;
+  let text='GPS: a aguardar',quality='waiting';
+  if(gpsFault===1){text='GPS: acesso recusado';quality='bad';}
+  else if(gpsFix&&Number.isFinite(gpsFix.accuracy)&&gpsFix.accuracy>=0){
+    const age=Number.isFinite(gpsFix.stamp)?Math.max(0,t-gpsFix.stamp):Infinity;
+    const label=!gpsRunning?'última leitura':age>10000?'leitura antiga':gpsFix.accuracy<=5?'melhor precisão':gpsFix.accuracy<=10?'precisão limitada':'precisão fraca';
+    text=`GPS ±${gpsFix.accuracy.toFixed(1)} m · ${label}`;
+    quality=!gpsRunning?'waiting':age>10000||gpsFix.accuracy>10?'bad':gpsFix.accuracy>5?'limited':'better';
+    badge.title=`Precisão horizontal indicada pelo aparelho, não força do sinal. Leitura há ${Number.isFinite(age)?Math.round(age/1000)+' s':'tempo desconhecido'}. Mesmo ±5 m pode confundir panoramas próximos.`;
+  }else if(gpsFault){text='GPS: localização indisponível';quality='bad';}
+  if(badge.textContent!==text)badge.textContent=text;badge.dataset.quality=quality;
+}
 function time(){lastTime=Math.max(lastTime,Date.now());return lastTime;}
 function record(e){if(!recording)return;const line=JSON.stringify(e);if(events.length>=MAX_EVENTS||bytes+line.length*2>MAX_BYTES){recording=false;truncated=true;el('movement-info').textContent+=' · Registo cheio';return;}events.push(JSON.parse(line));bytes+=line.length*2;}
 function send(e){record(e);latest=engine.update(e);render(e.t);return latest;}
@@ -26,10 +40,11 @@ function render(t,force=false){
     'anchor-or-gps-required':'A aguardar uma posição inicial identificável.',
     'motion-unavailable':'Sem passos confirmados. A aguardar sensores ou GPS.'};
   const label=latest.id?data.nodes.find(n=>n.id===latest.id)?.title:'Posição por confirmar';
-  context.status(`tour-mov 0.2 · ${method}\n${label}\nProgresso: ${latest.along?.toFixed(1)??'?'} m; incerteza operacional: ${latest.uncertainty?.toFixed(1)??'?'} m\nAtividade: ${latest.activity}; motivo: ${latest.reason}\nPassos: ${latest.steps??0}; sentido: ${latest.direction??'?'}\n${truncated?'Registo truncado.':''}`,
+  context.status(`tour-mov 0.3 · ${method}\n${label}\nProgresso: ${latest.along?.toFixed(1)??'?'} m; incerteza operacional: ${latest.uncertainty?.toFixed(1)??'?'} m\nAtividade: ${latest.activity}; motivo: ${latest.reason}\nPassos: ${latest.steps??0}; sentido: ${latest.direction??'?'}\n${truncated?'Registo truncado.':''}`,
     messages[latest.reason]??`${label}. Continua a caminhar; podes olhar à volta.`);
 }
 function stop(){
+  gpsRunning=false;showGps(Date.now());
   revision++;if(watch!==null)navigator.geolocation.clearWatch(watch);watch=null;
   if(timer!==null)clearInterval(timer);timer=null;offMotion?.();offMotion=null;
   recording=false;
@@ -41,6 +56,7 @@ function start(ctx){
   ctx.stopTracking();context=ctx;const run=++revision;
   if(!root.isSecureContext||!navigator.geolocation){ctx.status('É necessário HTTPS e acesso à localização.');return;}
   const method=el('movement-method').value,remote=el('gps-mode').value==='relative';
+  gpsFix=null;gpsFault=null;gpsRunning=true;showGps(time());
   const stepMeters=Number(el('step-meters').value);
   if(!Number.isFinite(stepMeters)||stepMeters<.2||stepMeters>1.5){ctx.status('Escolhe um comprimento de passo entre 0,2 e 1,5 m.');return;}
   // Invoke permission in the same synchronous user gesture as the Start button.
@@ -48,11 +64,11 @@ function start(ctx){
   const initialDirection=Number(el('travel-direction').value)===-1?-1:1;
   el('live-direction').value=String(initialDirection);
   const startAlong=route.panoramas.find(p=>p.id===ctx.first.id).along;
-  const params={...root.TourFusion.PARAMETERS,stepMeters},detectorParams={...root.TourSteps.PARAMETERS};
+  const params={...root.TourFusion.PARAMETERS,stepMeters},detectorParams={...root.TourSteps.PARAMETERS,sensitivity:Number(el('step-sensitivity').value)};
   engine=root.TourReplay.createEngine(method,data.nodes,route,{params,detectorParams});
-  session={schema:'cem-pano-session-1',appVersion:'tour-mov-0.2',routeId:route.id,routeVersion:route.version,
+  session={schema:'cem-pano-session-1',appVersion:'tour-mov-0.3',routeId:route.id,routeVersion:route.version,
     referenceKind:remote?'virtual':'physical',testMode:remote?el('remote-path').value:'benfica',engineOptions:{params,detectorParams},
-    detectorParameters:{source:'cem-pilot-detector-1',values:detectorParams},startedAt:new Date().toISOString(),truncated:false};
+    detectorParameters:{source:'cem-adaptive-peaks-v1',values:detectorParams},startedAt:new Date().toISOString(),truncated:false};
   events=[];bytes=0;truncated=false;recording=el('record-session').checked;lastMotion=-Infinity;lastRender=-Infinity;lastTime=0;latest=null;
   el('export-session').disabled=true;el('movement-direction-tools').hidden=false;
   send({type:'direction',t:time(),direction:initialDirection});
@@ -89,6 +105,7 @@ function start(ctx){
     const t=time(),c=position.coords;
     const raw={type:'rawGps',t,stamp:position.timestamp,lat:c.latitude,lng:c.longitude,accuracy:c.accuracy,
       speed:Number.isFinite(c.speed)?c.speed:null,heading:Number.isFinite(c.heading)?c.heading:null};
+    gpsFix=raw;gpsFault=null;showGps(t);
     record(raw);
     if(preparing){report(preparation.add(position));return;}
     if(!Number.isFinite(raw.accuracy)||raw.accuracy<0||raw.accuracy>20||t-raw.stamp>10000||raw.stamp>t)return;
@@ -118,16 +135,17 @@ function start(ctx){
   }
   watch=navigator.geolocation.watchPosition(reading,error=>{
     if(run!==revision)return;
+    gpsFault=error.code;showGps(time());
     if(error.code===1){ctx.stopTracking();ctx.walkState('error');ctx.status('Localização recusada. Verifica a permissão do navegador.');}
     else ctx.status(`GPS: ${error.code} · ${error.message}`,'A localização está temporariamente indisponível. A aguardar sinal.');
   },{enableHighAccuracy:true,maximumAge:0,timeout:25000});
   ctx.activeTracking();ctx.walkState('preparing');
   root.TourMap?.reset();report(preparation.snapshot(Date.now()));
-  timer=setInterval(()=>{if(run!==revision)return;if(preparing)report(preparation.snapshot(Date.now()));
+  timer=setInterval(()=>{if(run!==revision)return;showGps(time());if(preparing)report(preparation.snapshot(Date.now()));
     else{send({type:'tick',t:time()});render(time(),true);}},1000);
 }
 async function init(nodeData){
-  data=nodeData;const response=await fetch('route.json?v=0.2');if(!response.ok)throw new Error('Não foi possível carregar o percurso tour-mov.');
+  data=nodeData;const response=await fetch('route.json?v=0.3');if(!response.ok)throw new Error('Não foi possível carregar o percurso tour-mov.');
   route=root.TourRouteCore.createRoute(await response.json());
   el('reference-panorama').replaceChildren(...data.nodes.map(n=>{const option=document.createElement('option');option.value=n.id;option.textContent=n.title;return option;}));
   el('confirm-direction').onclick=()=>{if(engine){send({type:'direction',t:time(),direction:Number(el('live-direction').value)});render(time(),true);}};
@@ -142,3 +160,4 @@ async function init(nodeData){
 }
 root.TourMovement={init,start,stop,enabled:()=>!!route&&['gps','gps-activity','route-steps'].includes(el('movement-method').value)};
 })(window);
+
